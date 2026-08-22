@@ -1,0 +1,28 @@
+# RStudio noise
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Ignore everything by default
+*
+
+# Important project files to keep
+!.gitignore
+!README.md
+!scripts/
+!scripts/**
+!renv.lock
+!Dockerfile
+
+exploratory
+
+# Keep essential renv files for reproducibility
+!renv/
+!renv/**
+!environment/
+!environment/**
+
+# Keep essential venv files for reproducibility
+.venv
+!requirements.txt
