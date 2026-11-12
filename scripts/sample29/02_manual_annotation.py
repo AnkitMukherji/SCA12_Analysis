@@ -68,6 +68,9 @@ PROGRAMS = {
     "Hypoxia / glycolysis": ["VEGFA", "BNIP3", "LDHA", "PGK1"],
 }
 
+marker_panel = {**PANELS, **PROGRAMS}
+(OUT / "marker_panel.json").write_text(json.dumps(marker_panel, indent=2), encoding='utf-8')
+
 TOP_N = 200
 RANK_WINDOWS = [100, 200, 300]
 MAX_ADJUSTED_P = 0.05
