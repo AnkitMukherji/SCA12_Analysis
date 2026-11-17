@@ -1,27 +1,18 @@
-# Sample29 analysis scripts
+# Organoid single-cell RNA-seq scripts
 
-Sequential analysis of day-40 unguided cerebral-organoid scRNA-seq. Scripts use ordered blocks without custom function definitions. Documentation reflects current code on 12 November 2026.
+This workflow preprocesses a filtered organoid scRNA-seq count matrix and suggests cluster identities using ranked marker genes. Prepare the environment from [environment.yaml](environment.yaml), or inspect [requirements.lock.txt](requirements.lock.txt) for the recorded Python dependency versions. The input matrix, features and barcodes are study inputs. Check the folder paths in the scripts before execution.
 
-## Execution order and environments
+| Order | Script | Input and output |
+| --- | --- | --- |
+| 1 | [Preprocessing](01_preprocessing.py) | Count matrix, barcodes and features → preprocessed H5AD with counts, embedding, clusters and differential-expression rankings. |
+| 2 | [Manual annotation](02_manual_annotation.py) | Preprocessed H5AD → annotated H5AD, cluster marker evidence, uncertainty and visual summaries. |
 
-Run from `D:/sca12_analysis`: scripts use `Path.cwd()` as the root. In an editor, choose the matching interpreter and run imports, paths, loading and subsequent blocks in order; later blocks depend on earlier variables.
+From the repository root in the prepared environment:
 
-| Script | Environment | Main input | Saved H5AD under results/sample29 |
-|---|---|---|---|
-| `01_preprocessing.py` | `environments/sample29` | Compressed matrix/barcodes/features in data/single_cell_analysis/sample29 | `intermediate_data/sample29_preprocessed.h5ad` |
-| `02_manual_annotation.py` | Same sample29 environment | Preprocessed object and its saved rank_genes_groups | `intermediate_data/sample29_manual_annotation.h5ad` |
-| `03_automated_annotation.py` | `environments/sample29_reference` (Python 3.11) | Preprocessed object, references; optional manual object for comparison | `automated_annotation/sample29_automated_annotation.h5ad` |
-
-```powershell
-Set-Location D:\sca12_analysis
-& .\environments\sample29\Scripts\python.exe .\scripts\sample29\01_preprocessing.py
-& .\environments\sample29\Scripts\python.exe .\scripts\sample29\02_manual_annotation.py
-& .\environments\sample29_reference\Scripts\python.exe -u .\scripts\sample29\03_automated_annotation.py
+```bash
+python scripts/organoid_single_cell_analysis/01_preprocessing.py
+python scripts/organoid_single_cell_analysis/02_manual_annotation.py
 ```
-
-Run only the required stage: annotation reuses completed preprocessing. Named outputs are overwritten, but stale files are not automatically cleared. Figures are written to disk with a non-interactive Matplotlib backend.
-
-`environment.yaml` specifies the sample29 Conda/Python environment with pinned pip dependencies; `requirements.lock.txt` lists its pip versions. They are not the reference-model environment specification. Reference versions/requirements are recorded under automated results. The root requirements file contains machine-specific build paths and is not a portable specification for these scripts.
 
 ## 01_preprocessing.py: counts to clusters and DE
 
@@ -41,7 +32,7 @@ UMAP visualizes the graph. Leiden is run separately at 0.3, 0.6 and 1.0; resolut
 
 Wilcoxon `rank_genes_groups` compares each selected cluster with the rest using normalized/log expression, tie correction and detection fractions. The full ranking and first 30 entries per cluster are exported. The H5AD retains the ranking for annotation. A manifest records dimensions, settings, versions and hashes. Despite older comments about identity scoring, 01 does not assign cell types.
 
-The [preprocessing inventory](../../results/sample29/preprocessing/README.md) explains every output, its export stage and the AnnData fields.
+The script saves the preprocessed AnnData object, marker tables, QC plots and a manifest under the configured results and plots directories.
 
 ## 02_manual_annotation.py: ranked DE to broad identity suggestions
 
@@ -67,16 +58,10 @@ The separate specificity filter (log2FC>1, >20% inside, <20% outside) supplies a
 
 Review `cluster_annotations.csv`, `panel_overlap.csv`, `matched_marker_evidence.csv` and `rank_cutoff_sensitivity.csv` together. A best candidate can remain unresolved. Panel/threshold changes should be transparent; obtaining a desired label does not validate it.
 
-The [manual output inventory](../../results/sample29/manual_annotation/README.md) explains every file, reason and plot. The manual H5AD is saved in intermediate_data.
+The manual stage saves the annotated AnnData object and corresponding evidence tables. Inspect the configured results and plots directories after execution.
 
-## 03_automated_annotation.py: reference-based comparison
+## Interpretation
 
-03 reads the original preprocessed object, aligns counts to HNOCA features, adapts the published scPoli model, and transfers hierarchy paths with shared-neighbour Jaccard-square weights. Braun developing-brain CellTypist is run separately on log1p expression normalized to 10,000 counts across all genes.
+The annotation script assigns provisional labels to clusters. Review the marker panels, doublet flags, cluster sizes and cutoff sensitivity together. Captured cell proportions describe the input sample. Comparisons across conditions require biological replicates and an appropriate design.
 
-Raw predictions, uncertainty and supported parent/deeper labels are retained. Vote, margin, distance, doublet and hierarchy checks control acceptance. Previous manual labels supply comparison/coverage review, not training labels. `automated_review_label` is the main review output, distinct from raw and method-supported predictions.
-
-HNOCA lacks explicit general non-neural epithelial/endoderm labels in its transferred taxonomy. Coverage conflicts are withheld in the main view. Regional names are hypotheses, not validated anatomy. See the existing [automated README](../../results/sample29/automated_annotation/README.md), [reference comparison](../../results/sample29/automated_annotation/reference_selection.md) and [analysis summary](../../results/sample29/automated_annotation/analysis_summary.md).
-
-## Reproducibility
-
-Seeds/thread limits control randomness/resources but cannot guarantee identical results across package/platform changes. Read saved settings alongside current code: edits do not update old outputs until execution. Changing 01 inputs/clustering requires regenerating dependent annotations. This documentation update does not rerun analyses or alter biological decisions.
+[Repository overview](../../README.md)

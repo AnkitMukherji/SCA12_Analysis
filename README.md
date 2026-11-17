@@ -4,6 +4,10 @@ This repository contains research scripts for spinocerebellar ataxia type 12 (SC
 
 [Repository map](#repository-map) · [Clinical metadata](#clinical-metadata) · [Reference catalogs](#reference-catalogs) · [Short-read reconstruction](#short-read-reconstruction) · [Long-read reconstruction](#long-read-reconstruction) · [Organoid single-cell workflow](#organoid-single-cell-workflow) · [Reproduction and interpretation](#reproduction-and-interpretation)
 
+## Folder guides
+
+- [scripts](scripts/README.md)
+
 ## Repository map
 
 | Area | Entry point | Required inputs and key outputs |

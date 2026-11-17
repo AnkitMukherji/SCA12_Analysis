@@ -15,7 +15,7 @@ Unrecognized mapped categories generally become Unknown. Parasympathetic mild-to
 
 ## Script and output inventory
 
-Existing figures are in [plots/metadata_plots](../../plots/metadata_plots). Current script defaults differ from this location; see the path notes below.
+The original analysis used a local `plots/metadata_plots` directory. Generated figures and study workbooks are external to this checkout. See the path notes below for script defaults.
 
 | Script | Computation | Named outputs |
 |---|---|---|
@@ -67,3 +67,6 @@ df = load_and_clean_data('data/metadata/metadata_sca12.xlsx')
 ```
 
 This cleans in memory without modifying the workbook or regenerating plots. See the [project overview](../../README.md) for the separate single-cell workflow.
+
+
+[Repository overview](../../README.md)
