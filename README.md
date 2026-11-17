@@ -1,62 +1,77 @@
-# SCA12 analysis workspace
+# SCA12 analysis: clinical phenotypes, transcript models, and organoid scRNA-seq
 
-This workspace contains clinical metadata visualizations and single-cell RNA-seq analysis of sample29, a day-40 cerebral organoid. The supplied STEMdiff protocol describes an unguided workflow. Documentation checked against current code and files on 12 November 2026.
+This repository contains research scripts for spinocerebellar ataxia type 12 (SCA12). The clinical scripts describe phenotype and repeat-size patterns. The bulk RNA workflows reconstruct transcript models at the **PPP2R2B** locus and compare their exon chains, splice junctions, and transcript ends with reference annotations. A separate organoid workflow performs exploratory single-cell preprocessing and marker-based annotation.
 
-## Documentation map
+[Repository map](#repository-map) · [Clinical metadata](#clinical-metadata) · [Reference catalogs](#reference-catalogs) · [Short-read reconstruction](#short-read-reconstruction) · [Long-read reconstruction](#long-read-reconstruction) · [Organoid single-cell workflow](#organoid-single-cell-workflow) · [Reproduction and interpretation](#reproduction-and-interpretation)
 
-| Area | Guide |
-|---|---|
-| Metadata inputs, scripts and execution limitations | [Metadata scripts](scripts/metadata_viz/README.md) |
-| Single-cell methods and execution order | [Sample29 scripts](scripts/sample29/README.md) |
-| QC, clustering and DE output inventory | [Preprocessing results](results/sample29/preprocessing/README.md) |
-| DE/marker overlap and annotation uncertainty | [Manual results](results/sample29/manual_annotation/README.md) |
-| Reference mapping and classifier workflow | [Automated annotation](results/sample29/automated_annotation/README.md) |
-| Research-paper comparison | [Reference selection](results/sample29/automated_annotation/reference_selection.md) |
-| Interpretation of automated results | [Analysis summary](results/sample29/automated_annotation/analysis_summary.md) |
+## Repository map
 
-## Folder organization
+| Area | Entry point | Required inputs and key outputs |
+| --- | --- | --- |
+| Clinical summaries | [Metadata plotting and reporting](scripts/metadata_viz/) | Study workbooks → figures, Sankey HTML/PNG, optional Word report |
+| Reference comparison | [Reference catalog scripts](scripts/isoform_analysis/compare_references/) | GRCh38 GTFs → PPP2R2B GTFs, transcript catalogs and comparisons |
+| Short-read reconstruction | [Day 15](scripts/isoform_analysis/short_read_transcript_estimation/day15/) and [Day 30](scripts/isoform_analysis/short_read_transcript_estimation/day30/) | Aligned RNA-seq BAMs, reference annotations, and STAR splice-junction tables → assembled transcript models, reference classifications and junction evidence |
+| Long-read reconstruction | [5′ RACE workflow](scripts/isoform_analysis/long_read_transcript_estimation/) | Barcode assignment table, long-read FASTQs, genome/annotations and short-read support → aligned reads, reconstructed isoforms and QC reports |
+| Organoid single-cell analysis | [Preprocessing and manual annotation](scripts/organoid_single_cell_analysis/) | Filtered count matrix, barcodes and features → AnnData objects, cluster marker rankings, annotation evidence and plots |
 
-```text
-data/metadata/                         Clinical workbooks
-data/single_cell_analysis/sample29/    Counts, genes, barcodes and protocol
-scripts/metadata_viz/                  Metadata plotting/report code
-scripts/sample29/                      Preprocessing and annotation code
-results/sample29/intermediate_data/    Preprocessed and manual H5AD objects
-results/sample29/preprocessing/        QC, DE tables and manifest
-results/sample29/manual_annotation/    Marker overlap, labels and uncertainty
-results/sample29/automated_annotation/ Reference outputs, models, cache and reports
-plots/metadata_plots/                  Clinical figures and Sankey HTML
-plots/sample29/preprocessing/          QC, PCA and clustering figures
-plots/sample29/manual_annotation/      DE/marker plots and annotation UMAPs
-plots/sample29/automated_annotation/   Reference-label and uncertainty figures
-environments/                         Local environments and package cache
+## Clinical metadata
+
+Plots cover demographics, allele sizes, onset-age associations, disease-duration associations, concordance among clinical scales, and phenotype frequencies. The first workbook supplies demographics, repeat sizes and clinical scores. The second supplies categorical phenotypes for the proportions plots and Sankey. Run the relevant plotting modules before the report generator if you want to include their figures. See the [metadata guide](scripts/metadata_viz/README.md) for workbook names, fields, output names and the known path and report-image mismatches. Some paths are resolved from the scripts themselves and require review even when commands are launched at the repository root.
+
+Report the denominator for each analysis after filtering missing values. The repeat-size/onset-age analysis estimates a cross-sectional association. Measuring intergenerational anticipation requires family comparisons, and measuring progression within individuals requires longitudinal observations. The Sankey shows co-occurring categories.
+
+## Reference catalogs
+
+The reference scripts compare **GENCODE v50** and **NCBI RefSeq GRCh38.p14** annotations. The catalog builder extracts PPP2R2B features from a GTF, writes a target-only GTF and a `.catalog.tsv`, and records exon, intron and CDS coordinates. It accounts for strand when identifying the first exon. The remaining scripts compare exon and intron chains and summarize first exons.
+
+The catalog builder takes three positional arguments. Use a source label and output prefix appropriate to the chosen GTF:
+
+```bash
+python scripts/isoform_analysis/compare_references/reference_catalog.py input.gtf GENCODE gencode_ppp2r2b
 ```
 
-Other result folders (short-read analysis, RACE alignment, sashimi plots and slide updates) are separate work products, not outputs of the documented sample29 scripts.
+Build both catalogs, then check the file paths in the comparison scripts before running them with pandas. Keep chromosome naming consistent and preserve GTF's 1-based inclusive coordinates.
 
-## Sample29 workflow
+## Short-read reconstruction
 
-01 reads the filtered matrix/barcodes/features and creates `results/sample29/intermediate_data/sample29_preprocessed.h5ad`. 02 reuses that object's saved DE rankings and creates `results/sample29/intermediate_data/sample29_manual_annotation.h5ad`. 03 also reads the preprocessed object directly and creates `results/sample29/automated_annotation/sample29_automated_annotation.h5ad`. It optionally reads manual labels for comparison/coverage review, not model training.
+The Day 15 and Day 30 directories each contain the following stages:
 
-The saved manifest records 8,721 input cells and 40,407 features; 8,611 cells and 32,091 genes remain. All 151 doublet-flagged retained cells remain present. The selected grouping is Leiden resolution 0.6. UMAP visualizes the graph; it does not generate the cluster IDs. Annotation stages reuse the original clustering and UMAP.
+1. Extract and index BAMs for the PPP2R2B locus using SAMtools.
+2. Use StringTie for reference-guided per-sample assembly against GENCODE and RefSeq. Check the configured BAM inputs for each stage.
+3. Merge assemblies separately for each annotation, then extract PPP2R2B models from individual and merged GTFs using the `04a` and `04b` scripts.
+4. Compare the locus models with the corresponding references using GffCompare.
+5. Classify assembled models using both reference catalogs. Categories distinguish exact exon chains, known intron chains with different termini, novel junctions, new combinations of known junctions, and unresolved single-exon models.
+6. Use the junction extractor to summarize supporting reads from STAR `SJ.out.tab` files. Read the resulting junction support alongside the transcript classifications.
 
-## Running
+## Long-read reconstruction
 
-Run from the project root because sample29 scripts use `Path.cwd()`:
+| Stage | What the scripts do |
+| --- | --- |
+| 01–04 | Merge barcode FASTQs by sample, screen for primer matches, and trim the universal primer and cloning overhang with Cutadapt. Review primer orientation and trimming logs. |
+| 05–08 | Align with minimap2, check and subset alignments to the locus with SAMtools, pool alignments, and extract supporting introns with intron-prospector. |
+| 09 | Use BLAST to locate the gene-specific primer and the GTF utility to adjust reference transcript boundaries for primer-aware comparison. |
+| 10 | Run FLAIR v3.0.1 separately against the two capped annotation sets. The script checks required inputs, BAM integrity, and junction BED fields before reconstructing transcript models. |
+| 11–13 | Prepare STAR junction support, chromosome-level reference and short-read inputs, and run SQANTI3 QC on the RefSeq-based reconstructed models with CAGE peaks as orthogonal evidence for transcription starts. |
 
-```powershell
-Set-Location D:\sca12_analysis
-& .\environments\sample29\Scripts\python.exe .\scripts\sample29\01_preprocessing.py
-& .\environments\sample29\Scripts\python.exe .\scripts\sample29\02_manual_annotation.py
-& .\environments\sample29_reference\Scripts\python.exe -u .\scripts\sample29\03_automated_annotation.py
+The long-read scripts depend on Bash, Python, Cutadapt, minimap2, SAMtools, intron-prospector, BLAST+, FLAIR and SQANTI3. The short-read scripts additionally use StringTie, GffCompare and STAR junction outputs. Review each script's paths, sample lists, reference files, outputs and tool options in sequence. The scripts are documented entry points for their original environment, with adaptation required for a new installation.
+
+## Organoid single-cell workflow
+
+Use the [environment specification](scripts/organoid_single_cell_analysis/environment.yaml) and [dependency record](scripts/organoid_single_cell_analysis/requirements.lock.txt). The two scripts use the current working directory as the project root. Supply the study count matrix, barcode and feature files in the layout expected by the preprocessing script. From the repository root in the prepared environment:
+
+```bash
+python scripts/organoid_single_cell_analysis/01_preprocessing.py
+python scripts/organoid_single_cell_analysis/02_manual_annotation.py
 ```
 
-Run only the required stage; annotation need not repeat completed preprocessing. Named outputs are overwritten; obsolete files from older versions are not automatically cleared.
+Preprocessing reads the sparse count matrix and applies cell and gene filters. It records Scrublet doublet flags, normalizes and log-transforms counts, selects variable genes, and constructs a PCA-based neighbor graph for Leiden clustering and UMAP. Wilcoxon-ranked cluster markers are saved alongside the preprocessed AnnData object. Manual annotation reuses those rankings, compares them with identity panels, and records candidate labels, matched-marker evidence and unresolved clusters. Candidate identities are cluster-level suggestions. Program markers such as proliferation or stress help describe cell state.
 
-Use `environments/sample29` for 01/02 and the separate Python 3.11 reference environment for 03. Sample29 dependency specifications are `scripts/sample29/environment.yaml` and `requirements.lock.txt`; reference versions are recorded in automated results. The root `requirements.txt` contains machine-specific Conda/build paths and is not a portable specification for these pipelines.
+The current checkout provides preprocessing and manual-annotation scripts. The older guide also describes a local automated-reference workflow and result inventories. Use the repository map above to locate the files available here.
 
-## Interpretation and limitations
+## Reproduction and interpretation
 
-Manual annotation is a reproducible DE/marker-overlap aid to review, not completed expert validation. Reference labels are candidate matches constrained by reference coverage. Confidence measures are heuristic. Percentages describe captured cells in one sample, not biological replicate statistics or direct tissue proportions.
+Study inputs and generated result directories are external to this checkout. The root requirements file includes machine-specific package references. Use the subworkflow's recorded environment where supplied and check versions and mounted paths before execution. The commands above describe code entry points. This documentation review did not rerun the analyses.
 
-Clinical metadata and single-cell data are separate inputs; these scripts do not implement participant-to-cell linkage. The metadata code has legacy path and figure-name mismatches documented in its README. Existing figures are present, but default entrypoints should not be assumed to regenerate them at their current locations without checking those paths.
+Compare putative transcript structures against **both** annotations and inspect splice support, transcript ends, and assay-specific biases. Short reads support individual junctions more directly than complete exon chains. Targeted long reads can connect distant junctions, while the primer and alignment strategy affect which ends are observable. A transcript structure's difference from an annotation identifies a candidate for follow-up. Promoter activity, repeat-dependent effects and allele-specific expression require additional supporting evidence.
+
+Organoid cluster markers support provisional labels. Cell proportions describe captured cells, and inference across conditions requires suitable biological replicates. The registry and organoid scripts operate on separate inputs.
