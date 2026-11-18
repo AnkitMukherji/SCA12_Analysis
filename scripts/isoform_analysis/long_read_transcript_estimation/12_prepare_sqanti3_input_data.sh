@@ -30,28 +30,34 @@ ISOGTF="$DIR/flair/primary/RefSeq/pooled_reads_transcriptome.isoforms.gtf"
 awk 'BEGIN {FS=OFS="\t"} /^#/ {print; next} $1=="chr5" {print}' "$ISOGTF" > "$DIR/sqanti3/input_data/flair_isoforms/flair_isoforms.chr5.gtf"
 
 # Extract chromosome 5 from dragen bams of short read rna-seq data
-BAMDIR="/mnt/faruq2/lab_users/vivek/analysis/RNA-Seq/SCA12/batch2/dragen"
-SAMPLES=(
-    150_N2
-    150_NEU_5JAN1
-    150_NEU_5JAN2
-    150_NSC_P14
-    150_NSC_P8
-    ATC2555_NEU3
-    ATC2555_NEU5
-    ATC2555_NEU6
-    ATC2555_NSCP14
-    ATC2555_NSCP8
-    GOC29_N3
-    GOC29_N4
+BATCH1_DIR="/mnt/faruq2/lab_users/vivek/analysis/RNA-Seq/SCA12/batch1/dragen"
+BATCH2_DIR="/mnt/faruq2/lab_users/vivek/analysis/RNA-Seq/SCA12/batch2/dragen"
+
+declare -A SAMPLE_DIRS=(
+    # Batch 1 sample
+    [NEU-GOC-29-SCA12]="$BATCH1_DIR"
+
+    # Batch 2 samples
+    [150_N2]="$BATCH2_DIR"
+    [150_NEU_5JAN1]="$BATCH2_DIR"
+    [150_NEU_5JAN2]="$BATCH2_DIR"
+    [150_NSC_P14]="$BATCH2_DIR"
+    [150_NSC_P8]="$BATCH2_DIR"
+    [ATC2555_NEU3]="$BATCH2_DIR"
+    [ATC2555_NEU5]="$BATCH2_DIR"
+    [ATC2555_NEU6]="$BATCH2_DIR"
+    [ATC2555_NSCP14]="$BATCH2_DIR"
+    [ATC2555_NSCP8]="$BATCH2_DIR"
+    [GOC29_N3]="$BATCH2_DIR"
+    [GOC29_N4]="$BATCH2_DIR"
 )
 
 THREADS=20
 
-for sample in "${SAMPLES[@]}";
+for sample in "${!SAMPLE_DIRS[@]}";
 do
 
-    BAM="$BAMDIR/${sample}.bam"
+    BAM="${SAMPLE_DIRS[$sample]}/${sample}.bam"
     FINAL="$DIR/sqanti3/input_data/bams/${sample}.chr5.bam"
 
     echo "Processing: $sample"
@@ -74,10 +80,10 @@ do
 done
 
 # Extract chromosome 5 from STAR splice-junction files
-for sample in "${SAMPLES[@]}"; 
+for sample in "${!SAMPLE_DIRS[@]}"; 
 do
 
-    INPUT="$BAMDIR/${sample}.SJ.out.tab"
+    INPUT="${SAMPLE_DIRS[$sample]}/${sample}.SJ.out.tab"
     OUTPUT="$DIR/sqanti3/input_data/short_read_junctions/${sample}.SJ.out.tab"
     
     echo "Processing junctions: $sample"
