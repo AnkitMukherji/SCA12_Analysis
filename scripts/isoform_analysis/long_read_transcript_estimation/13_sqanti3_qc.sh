@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+TOOL="/mnt/faruq2/lab_data/tools/SQANTI3"
 DIR="/mnt/faruq2/lab_users/ankit/nanopore_analysis/MF_5RACE_PPP2R2B_29082025/analysis_long_read/sqanti3"
 
 # Reference
@@ -25,7 +26,7 @@ OUT="$DIR/refseq"
 
 mkdir -p "$OUT"
 
-sqanti3_qc.py \
+"$TOOL/sqanti3_qc.py" \
     --isoforms "$ISO" \
     --refGTF "$REF" \
     --refFasta "$GENOME" \
